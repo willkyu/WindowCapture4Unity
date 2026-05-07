@@ -1,16 +1,14 @@
 # willkyu Window Capture API 参考
 
-命名空间：`WindowCapture`
-
-本文只介绍主要公开接口。实现 `IDisposable` 的对象按 C# 常规释放即可，不单独展开通用释放函数。
+命名空间：`WindowCapture`。
 
 ## 基本约定
 
 - 普通捕获路径默认输出 top-down `RGBA32`。
 - 需要控制色彩格式或 top-down/bottom-up 时，使用 `WgcWindowFrameSource.CaptureOriginal(FramePixelFormat format, bool rowsBottomUp = false)`。
-- `WindowFrameSource.Auto` 优先 WGC；WGC 暂无新帧时复用最近缓存帧，避免鼠标位于目标内容外时在 WGC 和 GDI 之间来回切换。
+- `WindowFrameSource.Auto` 优先 WGC；WGC 暂无新帧时复用最近缓存帧。
 - `LastRawCaptureFps` 统计底层原始图像捕获耗时；`LastFrameReadFps` 统计取帧耗时，读取缩放帧时包含 CPU resize 耗时。两者都不受外部 `captureInterval` 影响。
-- 只做显示预览时保持原始尺寸，由 `RawImage` 缩放显示，通常可以避免 CPU resize。
+- 只做显示预览时保持原始尺寸，由 `RawImage` 缩放显示。
 
 ## 主要类
 

@@ -307,6 +307,23 @@ namespace WindowCapture.Tests
         }
 
         [Test]
+        public void PackageContainsEnglishReadmeAndApiDoc()
+        {
+            string packageRoot = FindPackageRoot();
+            string readme = Path.Combine(packageRoot, "README.md");
+            string apiDoc = Path.Combine(packageRoot, "Documentation~", "API.md");
+
+            Assert.IsTrue(File.Exists(readme), "README.md must exist.");
+            Assert.IsTrue(File.Exists(apiDoc), "English API.md must exist.");
+
+            string readmeText = File.ReadAllText(readme);
+            string apiText = File.ReadAllText(apiDoc);
+            StringAssert.Contains("Add package from git URL", readmeText);
+            StringAssert.Contains("WindowFrameSource", apiText);
+            StringAssert.Contains("CaptureDeviceEnumerator", apiText);
+        }
+
+        [Test]
         public void NativeWgcSourceIsPackagedForMaintenance()
         {
             string packageRoot = FindPackageRoot();
@@ -340,7 +357,9 @@ namespace WindowCapture.Tests
 
             Assert.IsTrue(Directory.Exists(packageRoot), "ONNX Runtime inference package must exist.");
             Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "package.json")));
+            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "README.md")));
             Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "README.zh-CN.md")));
+            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Documentation~", "API.md")));
             Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Documentation~", "API.zh-CN.md")));
             Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "OnnxRuntimeInference.asmdef")));
             Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "IOnnxDetectorSession.cs")));
@@ -368,6 +387,12 @@ namespace WindowCapture.Tests
             StringAssert.Contains("ONNX Runtime", readme);
             StringAssert.Contains("DirectML", readme);
             StringAssert.Contains("FrameOnnxRunner", readme);
+
+            string englishReadme = File.ReadAllText(Path.Combine(packageRoot, "README.md"));
+            string englishApi = File.ReadAllText(Path.Combine(packageRoot, "Documentation~", "API.md"));
+            StringAssert.Contains("Add package from git URL", englishReadme);
+            StringAssert.Contains("PreparedFrameOnnxInputBuffer", englishReadme);
+            StringAssert.Contains("TryBeginRun(PreparedFrameOnnxInputBuffer.ReadLease", englishApi);
         }
 
         [Test]

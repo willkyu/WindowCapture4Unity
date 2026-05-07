@@ -1,6 +1,6 @@
-# willkyu Window Capture
+# Window Capture For Unity
 
-这是一个专注于 Windows 窗口捕获和设备捕获的 Unity UPM 包。
+这是一个专注于 Windows 窗口捕获和设备捕获的 Unity 包，受 [uWindowCapture](https://github.com/hecomi/uWindowCapture) 启发。借助 Codex 开发。
 
 ## 功能范围
 
@@ -11,7 +11,13 @@
 - 提供原始尺寸和 CPU resize 两类取帧方法，resize 可选择 `Nearest` 或 `Bilinear`。
 - 提供双缓冲最新帧快照，避免 UI 或识别线程每次读取时重新触发底层捕获。
 
-本包不包含检测模型、业务 UI、任务系统、键鼠输出、EasyCon 或原项目 settings。
+## 安装
+
+在 Unity 中打开 `Window > Package Manager`，点击 `+`，选择 `Add package from git URL...`，输入：
+
+```text
+https://github.com/willkyu/WindowCapture4Unity.git
+```
 
 ## 窗口捕获示例
 
