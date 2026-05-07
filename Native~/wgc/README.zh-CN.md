@@ -15,6 +15,7 @@ C# 层当前依赖以下导出函数：
 
 - `Wgc_IsSupported`
 - `Wgc_CreateSession`
+- `Wgc_CreateSessionWithOptions`
 - `Wgc_DestroySession`
 - `Wgc_GetFrameSize`
 - `Wgc_GetFrameBytesPerPixel`
@@ -24,6 +25,8 @@ C# 层当前依赖以下导出函数：
 - `Wgc_ReleaseLatestFrame`
 
 导出签名发生变化时，应同步更新 `Runtime/WgcNative.cs` 和 API 文档。
+
+`Wgc_CreateSession` 是兼容入口，等同于 `Wgc_CreateSessionWithOptions(hwnd, 0, outSession)`，即默认不捕获鼠标指针。`Wgc_CreateSessionWithOptions` 的 `captureCursor` 为非零时会尝试开启 `GraphicsCaptureSession.IsCursorCaptureEnabled`。
 
 `Wgc_GetDefaultRowsBottomUp` 返回 `0`，表示默认输出 top-down。`Wgc_TryGetFrame` 支持 `RGBA32`、`BGRA32`、`RGB24`、`BGR24`，并通过 `rowsBottomUp` 参数控制输出行顺序。`Wgc_TryGetFrameRgba` 保留为兼容入口，固定输出 top-down `RGBA32`。
 

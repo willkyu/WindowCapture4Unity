@@ -1,6 +1,6 @@
 {
   "name": "com.willkyu.window-capture",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "displayName": "willkyu Window Capture",
   "description": "Reusable Unity runtime package for Win32/WGC window capture, webcam/capture-card frame capture, and top-down RGBA frame buffering.",
   "unity": "2022.3",

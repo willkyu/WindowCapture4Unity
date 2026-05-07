@@ -316,7 +316,7 @@ extern "C"
         return isAvailable;
     }
 
-    __declspec(dllexport) bool __cdecl Wgc_CreateSession(HWND hwnd, void** outSession)
+    __declspec(dllexport) bool __cdecl Wgc_CreateSessionWithOptions(HWND hwnd, int captureCursor, void** outSession)
     {
         if (!outSession)
             return false;
@@ -373,6 +373,14 @@ extern "C"
                 s->size);
 
             s->session = s->pool.CreateCaptureSession(s->item);
+
+            if (winrt::Windows::Foundation::Metadata::ApiInformation::IsPropertyPresent(
+                    L"Windows.Graphics.Capture.GraphicsCaptureSession",
+                    L"IsCursorCaptureEnabled"))
+            {
+                s->session.IsCursorCaptureEnabled(captureCursor != 0);
+            }
+
             s->session.StartCapture();
         });
 
@@ -384,6 +392,11 @@ extern "C"
 
         *outSession = s.release();
         return true;
+    }
+
+    __declspec(dllexport) bool __cdecl Wgc_CreateSession(HWND hwnd, void** outSession)
+    {
+        return Wgc_CreateSessionWithOptions(hwnd, 0, outSession);
     }
 
     __declspec(dllexport) void __cdecl Wgc_DestroySession(void* sessionPtr)

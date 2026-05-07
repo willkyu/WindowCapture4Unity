@@ -76,9 +76,12 @@ namespace WindowCapture
     {
         CapturedFrame CaptureOriginal();
         CapturedFrame CaptureResized(int width, int height);
+        CapturedFrame CaptureResized(int width, int height, FrameResizeAlgorithm algorithm);
         bool TryGetLatestOriginalTopDownBytes(out byte[] bytes, out int width, out int height);
         bool TryGetLatestOriginalFrame(out CapturedFrame frame);
         bool TryGetLatestTopDownBytes(int width, int height, out byte[] bytes, out int outWidth, out int outHeight);
+        bool TryGetLatestTopDownBytes(int width, int height, FrameResizeAlgorithm algorithm, out byte[] bytes, out int outWidth, out int outHeight);
         bool TryGetLatestFrame(int width, int height, out CapturedFrame frame);
+        bool TryGetLatestFrame(int width, int height, FrameResizeAlgorithm algorithm, out CapturedFrame frame);
     }
 }

@@ -118,9 +118,31 @@ namespace WindowCapture
             out long frameId,
             out DateTime timestampUtc)
         {
+            return TryCopyCurrentResized(
+                width,
+                height,
+                FrameResizeAlgorithm.Bilinear,
+                out bytes,
+                out outWidth,
+                out outHeight,
+                out frameId,
+                out timestampUtc);
+        }
+
+        public bool TryCopyCurrentResized(
+            int width,
+            int height,
+            FrameResizeAlgorithm algorithm,
+            out byte[] bytes,
+            out int outWidth,
+            out int outHeight,
+            out long frameId,
+            out DateTime timestampUtc)
+        {
             return TryCopyCurrentResizedCore(
                 width,
                 height,
+                algorithm,
                 rentFromPool: false,
                 out bytes,
                 out outWidth,
@@ -138,9 +160,31 @@ namespace WindowCapture
             out long frameId,
             out DateTime timestampUtc)
         {
+            return TryRentCopyCurrentResized(
+                width,
+                height,
+                FrameResizeAlgorithm.Bilinear,
+                out bytes,
+                out outWidth,
+                out outHeight,
+                out frameId,
+                out timestampUtc);
+        }
+
+        public bool TryRentCopyCurrentResized(
+            int width,
+            int height,
+            FrameResizeAlgorithm algorithm,
+            out byte[] bytes,
+            out int outWidth,
+            out int outHeight,
+            out long frameId,
+            out DateTime timestampUtc)
+        {
             return TryCopyCurrentResizedCore(
                 width,
                 height,
+                algorithm,
                 rentFromPool: true,
                 out bytes,
                 out outWidth,
@@ -152,6 +196,7 @@ namespace WindowCapture
         private bool TryCopyCurrentResizedCore(
             int width,
             int height,
+            FrameResizeAlgorithm algorithm,
             bool rentFromPool,
             out byte[] bytes,
             out int outWidth,
@@ -178,6 +223,8 @@ namespace WindowCapture
                 {
                     if (srcW == width && srcH == height)
                         Buffer.BlockCopy(src, 0, bytes, 0, count);
+                    else if (algorithm == FrameResizeAlgorithm.Nearest)
+                        Rgba32Resizer.ResizeNearest(src, srcW, srcH, bytes, width, height);
                     else
                         Rgba32Resizer.ResizeBilinear(src, srcW, srcH, bytes, width, height);
                 }

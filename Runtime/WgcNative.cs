@@ -9,8 +9,14 @@ namespace WindowCapture
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void WgcReleaseLatestFrameDelegate(IntPtr session);
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate bool WgcCreateSessionWithOptionsDelegate(IntPtr hWnd, int captureCursor, out IntPtr session);
+
+        private static readonly object CreateSessionResolveLock = new object();
         private static readonly object ReleaseResolveLock = new object();
+        private static bool createSessionWithOptionsResolved;
         private static bool releaseLatestFrameResolved;
+        private static WgcCreateSessionWithOptionsDelegate createSessionWithOptions;
         private static WgcReleaseLatestFrameDelegate releaseLatestFrame;
 
         [DllImport("WGC", CallingConvention = CallingConvention.Cdecl)]
@@ -18,6 +24,21 @@ namespace WindowCapture
 
         [DllImport("WGC", CallingConvention = CallingConvention.Cdecl)]
         internal static extern bool Wgc_CreateSession(IntPtr hWnd, out IntPtr session);
+
+        internal static bool Wgc_CreateSessionWithOptions(IntPtr hWnd, int captureCursor, out IntPtr session)
+        {
+            WgcCreateSessionWithOptionsDelegate create = ResolveCreateSessionWithOptions();
+            if (create != null)
+                return create(hWnd, captureCursor, out session);
+
+            if (captureCursor != 0)
+            {
+                session = IntPtr.Zero;
+                return false;
+            }
+
+            return Wgc_CreateSession(hWnd, out session);
+        }
 
         [DllImport("WGC", CallingConvention = CallingConvention.Cdecl)]
         internal static extern void Wgc_DestroySession(IntPtr session);
@@ -61,6 +82,32 @@ namespace WindowCapture
             try { release(session); } catch { }
         }
 
+        private static WgcCreateSessionWithOptionsDelegate ResolveCreateSessionWithOptions()
+        {
+            if (createSessionWithOptionsResolved)
+                return createSessionWithOptions;
+
+            lock (CreateSessionResolveLock)
+            {
+                if (createSessionWithOptionsResolved)
+                    return createSessionWithOptions;
+
+                IntPtr module = GetModuleHandle("WGC.dll");
+                if (module == IntPtr.Zero)
+                    module = GetModuleHandle("WGC");
+
+                if (module != IntPtr.Zero)
+                {
+                    IntPtr proc = GetProcAddress(module, "Wgc_CreateSessionWithOptions");
+                    if (proc != IntPtr.Zero)
+                        createSessionWithOptions = Marshal.GetDelegateForFunctionPointer<WgcCreateSessionWithOptionsDelegate>(proc);
+                }
+
+                createSessionWithOptionsResolved = true;
+                return createSessionWithOptions;
+            }
+        }
+
         private static WgcReleaseLatestFrameDelegate ResolveReleaseLatestFrame()
         {
             if (releaseLatestFrameResolved)
@@ -91,6 +138,14 @@ namespace WindowCapture
         internal static bool Wgc_CreateSession(IntPtr hWnd, out IntPtr session)
         {
             _ = hWnd;
+            session = IntPtr.Zero;
+            return false;
+        }
+
+        internal static bool Wgc_CreateSessionWithOptions(IntPtr hWnd, int captureCursor, out IntPtr session)
+        {
+            _ = hWnd;
+            _ = captureCursor;
             session = IntPtr.Zero;
             return false;
         }

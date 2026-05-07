@@ -7,7 +7,7 @@ Reusable Unity runtime package for:
 - Webcam and USB capture-card frames through `WebCamTexture`.
 - Thread-safe latest-frame snapshots in normalized top-down `RGBA32`.
 
-The package is intentionally limited to capture. It does not include detector, UI, automation task, keyboard, mouse, EasyCon, or willLuckyu application settings code.
+The package is intentionally limited to capture. It does not include detector, UI, automation task, keyboard, mouse, EasyCon, or application settings code.
 
 ## Install
 

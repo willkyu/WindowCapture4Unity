@@ -106,6 +106,40 @@ namespace WindowCapture.Tests
         }
 
         [Test]
+        public void BufferedFrameSourceCaptureResizedCanUseNearestResize()
+        {
+            var source = new ManualBufferedFrameSource();
+            source.NextFrame = new byte[]
+            {
+                10, 0, 0, 255, 20, 0, 0, 255,
+                30, 0, 0, 255, 40, 0, 0, 255
+            };
+
+            using CapturedFrame frame = source.CaptureResized(1, 1, FrameResizeAlgorithm.Nearest);
+
+            Assert.AreEqual(1, frame.Width);
+            Assert.AreEqual(1, frame.Height);
+            CollectionAssert.AreEqual(new byte[] { 10, 0, 0, 255 }, FirstPixel(frame.Pixels));
+        }
+
+        [Test]
+        public void ResizeApiExposesCpuAlgorithmOverloadsOnly()
+        {
+            string packageRoot = FindPackageRoot();
+            string captureFrame = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "CaptureFrame.cs"));
+            string buffer = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "TopDownRgbaFrameBuffer.cs"));
+
+            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "FrameResizeAlgorithm.cs")));
+            Assert.IsFalse(File.Exists(Path.Combine(packageRoot, "Runtime", "CapturedGpuFrame.cs")));
+            Assert.IsFalse(File.Exists(Path.Combine(packageRoot, "Runtime", "GpuFrameResizer.cs")));
+            StringAssert.Contains("FrameResizeAlgorithm", captureFrame);
+            StringAssert.Contains("CaptureResized(int width, int height, FrameResizeAlgorithm algorithm)", captureFrame);
+            StringAssert.Contains("TryGetLatestFrame(int width, int height, FrameResizeAlgorithm algorithm", captureFrame);
+            StringAssert.Contains("ResizeNearest", buffer);
+            StringAssert.Contains("ResizeBilinear", buffer);
+        }
+
+        [Test]
         public void WindowSelectorRoundTripsHandleAndDisplayTitle()
         {
             var hwnd = new IntPtr(0x1234);
@@ -173,12 +207,30 @@ namespace WindowCapture.Tests
 
             string text = File.ReadAllText(script);
             StringAssert.Contains("using WindowCapture;", text);
+            StringAssert.Contains("using OnnxRuntimeInference;", text);
             StringAssert.Contains("using TMPro;", text);
             StringAssert.Contains("TMP_Dropdown", text);
             StringAssert.Contains("TextMeshProUGUI", text);
             StringAssert.Contains("RawImage", text);
+            StringAssert.Contains("private TextMeshProUGUI detectionText;", text);
+            StringAssert.Contains("private RectTransform detectionOverlayRoot;", text);
+            StringAssert.Contains("private float inferenceInterval", text);
+            StringAssert.Contains("FrameOnnxRunner", text);
+            StringAssert.Contains("PreparedFrameOnnxInputBuffer", text);
+            StringAssert.Contains("private bool useWorkerPreparedModelInput = true", text);
+            StringAssert.Contains("CaptureWorkerLoop", text);
+            StringAssert.Contains("TryBeginRun(preparedInput)", text);
+            StringAssert.Contains("RenderDetectionOverlay", text);
+            StringAssert.Contains("private int outputWidth = 0;", text);
+            StringAssert.Contains("private int outputHeight = 0;", text);
             StringAssert.Contains("LastBackendUsed", text);
-            StringAssert.Contains("captureFps", text);
+            StringAssert.Contains("captureCursor", text);
+            StringAssert.Contains("LastRawCaptureFps", text);
+            StringAssert.Contains("LastFrameReadFps", text);
+            Assert.IsFalse(text.Contains("captureFps", StringComparison.Ordinal));
+            Assert.IsFalse(text.Contains("TrackCaptureFps", StringComparison.Ordinal));
+            Assert.IsFalse(text.Contains("framesInWindow", StringComparison.Ordinal));
+            Assert.IsFalse(text.Contains("fpsWindowStartTime", StringComparison.Ordinal));
             Assert.IsFalse(text.Contains("private Dropdown", StringComparison.Ordinal));
             Assert.IsFalse(text.Contains("private Text ", StringComparison.Ordinal));
 
@@ -278,6 +330,93 @@ namespace WindowCapture.Tests
             }
 
             CollectionAssert.IsEmpty(forbidden, "Native source folder should not include generated build artifacts.");
+        }
+
+        [Test]
+        public void OnnxRuntimeInferencePackageIsExtractedAndDocumented()
+        {
+            string projectRoot = FindProjectRoot();
+            string packageRoot = Path.Combine(projectRoot, "Packages", "com.willkyu.onnxruntime-inference");
+
+            Assert.IsTrue(Directory.Exists(packageRoot), "ONNX Runtime inference package must exist.");
+            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "package.json")));
+            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "README.zh-CN.md")));
+            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Documentation~", "API.zh-CN.md")));
+            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "OnnxRuntimeInference.asmdef")));
+            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "IOnnxDetectorSession.cs")));
+            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "OnnxRuntimeDetectorSession.cs")));
+            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "OrtNativeLibraryPreloader.cs")));
+            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "TensorPreprocessor.cs")));
+            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "Plugins", "Windows", "x86_64", "onnxruntime.dll")));
+            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "Managed", "Microsoft.ML.OnnxRuntime.dll")));
+
+            string packageJson = File.ReadAllText(Path.Combine(packageRoot, "package.json"));
+            StringAssert.Contains("\"name\": \"com.willkyu.onnxruntime-inference\"", packageJson);
+            StringAssert.Contains("\"author\"", packageJson);
+            StringAssert.Contains("\"willkyu\"", packageJson);
+
+            string runtimeApi = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "OnnxRuntimeDetectorSession.cs"));
+            StringAssert.Contains("namespace OnnxRuntimeInference", runtimeApi);
+            string legacyProjectNamespace = "will" + "Luckyu";
+            string upperInitialBrand = "Will" + "Kyu";
+            string camelBrand = "will" + "Kyu";
+            Assert.IsFalse(runtimeApi.Contains(legacyProjectNamespace, StringComparison.Ordinal));
+            Assert.IsFalse(runtimeApi.Contains(upperInitialBrand, StringComparison.Ordinal));
+            Assert.IsFalse(runtimeApi.Contains(camelBrand, StringComparison.Ordinal));
+
+            string readme = File.ReadAllText(Path.Combine(packageRoot, "README.zh-CN.md"));
+            StringAssert.Contains("ONNX Runtime", readme);
+            StringAssert.Contains("DirectML", readme);
+            StringAssert.Contains("FrameOnnxRunner", readme);
+        }
+
+        [Test]
+        public void WindowFrameSourceExposesTimingCursorAndStableWgcReuseApi()
+        {
+            string packageRoot = FindPackageRoot();
+            string windowFrameSource = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "WindowFrameSource.cs"));
+            string wgcFrameSource = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "WgcWindowFrameSource.cs"));
+            string bufferedFrameSource = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "TopDownBufferedFrameSourceBase.cs"));
+            string wgcNative = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "WgcNative.cs"));
+
+            StringAssert.Contains("bool captureCursor = false", windowFrameSource);
+            StringAssert.Contains("bool captureCursor = false", wgcFrameSource);
+            StringAssert.Contains("LastRawCaptureDuration", bufferedFrameSource);
+            StringAssert.Contains("LastFrameReadDuration", bufferedFrameSource);
+            StringAssert.Contains("LastRawCaptureFps", bufferedFrameSource);
+            StringAssert.Contains("LastFrameReadFps", bufferedFrameSource);
+            StringAssert.Contains("TryReadLatestFrameAfterWgcNotReady", windowFrameSource);
+            StringAssert.Contains("UpdateTimingStats", windowFrameSource);
+            StringAssert.Contains("Wgc_CreateSessionWithOptions", wgcNative);
+        }
+
+        [Test]
+        public void NativeWgcCursorCaptureDefaultsOffAndHasOption()
+        {
+            string packageRoot = FindPackageRoot();
+            string nativeRoot = Path.Combine(packageRoot, "Native~", "wgc");
+            string nativeSource = File.ReadAllText(Path.Combine(nativeRoot, "WGC.cpp"));
+            string nativeTest = File.ReadAllText(Path.Combine(nativeRoot, "WGC.test.cpp"));
+
+            StringAssert.Contains("Wgc_CreateSessionWithOptions", nativeSource);
+            StringAssert.Contains("IsCursorCaptureEnabled", nativeSource);
+            StringAssert.Contains("Wgc_CreateSessionWithOptions(hwnd, 0, outSession)", nativeSource);
+            StringAssert.Contains("Wgc_CreateSessionWithOptions", nativeTest);
+        }
+
+        [Test]
+        public void ApiDocsDescribeTimingCursorAndAutoWgcReuse()
+        {
+            string packageRoot = FindPackageRoot();
+            string apiDoc = File.ReadAllText(Path.Combine(packageRoot, "Documentation~", "API.zh-CN.md"));
+            string readme = File.ReadAllText(Path.Combine(packageRoot, "README.zh-CN.md"));
+
+            StringAssert.Contains("captureCursor", apiDoc);
+            StringAssert.Contains("LastRawCaptureFps", apiDoc);
+            StringAssert.Contains("LastFrameReadFps", apiDoc);
+            StringAssert.Contains("WGC 暂无新帧时复用最近缓存帧", apiDoc);
+            StringAssert.Contains("避免 CPU resize", apiDoc);
+            StringAssert.Contains("鼠标捕获默认关闭", readme);
         }
 
         private static byte[] FirstPixel(byte[] pixels)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers;
+using System.Diagnostics;
 
 namespace WindowCapture
 {
@@ -16,6 +17,11 @@ namespace WindowCapture
             this.defaultOutputHeight = defaultOutputHeight;
         }
 
+        public TimeSpan LastRawCaptureDuration { get; private set; }
+        public TimeSpan LastFrameReadDuration { get; private set; }
+        public double LastRawCaptureFps => DurationToFps(LastRawCaptureDuration);
+        public double LastFrameReadFps => DurationToFps(LastFrameReadDuration);
+
         public CapturedFrame Capture()
         {
             if (defaultOutputWidth > 0 && defaultOutputHeight > 0)
@@ -26,7 +32,7 @@ namespace WindowCapture
 
         public CapturedFrame CaptureOriginal()
         {
-            CaptureAndPublishLatest();
+            CaptureAndPublishLatestMeasured();
             if (!TryGetLatestOriginalFrame(out CapturedFrame frame))
                 throw new InvalidOperationException("No captured frame is available.");
 
@@ -35,11 +41,16 @@ namespace WindowCapture
 
         public CapturedFrame CaptureResized(int width, int height)
         {
+            return CaptureResized(width, height, FrameResizeAlgorithm.Bilinear);
+        }
+
+        public CapturedFrame CaptureResized(int width, int height, FrameResizeAlgorithm algorithm)
+        {
             if (width <= 0 || height <= 0)
                 throw new ArgumentOutOfRangeException(nameof(width), "Target size must be positive.");
 
-            CaptureAndPublishLatest();
-            if (!TryGetLatestFrame(width, height, out CapturedFrame frame))
+            CaptureAndPublishLatestMeasured();
+            if (!TryGetLatestFrame(width, height, algorithm, out CapturedFrame frame))
                 throw new InvalidOperationException("No captured frame is available.");
 
             return frame;
@@ -47,49 +58,92 @@ namespace WindowCapture
 
         public bool TryGetLatestOriginalTopDownBytes(out byte[] bytes, out int width, out int height)
         {
-            return frameBuffer.TryCopyCurrent(out bytes, out width, out height, out _, out _);
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            try
+            {
+                return frameBuffer.TryCopyCurrent(out bytes, out width, out height, out _, out _);
+            }
+            finally
+            {
+                LastFrameReadDuration = stopwatch.Elapsed;
+            }
         }
 
         public bool TryGetLatestOriginalFrame(out CapturedFrame frame)
         {
-            if (!frameBuffer.TryRentCopyCurrent(out byte[] bytes, out int width, out int height, out long frameId, out DateTime timestampUtc))
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            try
             {
-                frame = null;
-                return false;
-            }
+                if (!frameBuffer.TryRentCopyCurrent(out byte[] bytes, out int width, out int height, out long frameId, out DateTime timestampUtc))
+                {
+                    frame = null;
+                    return false;
+                }
 
-            frame = CreateOwnedRgbaFrame(bytes, width, height, frameId, timestampUtc);
-            return true;
+                frame = CreateOwnedRgbaFrame(bytes, width, height, frameId, timestampUtc);
+                return true;
+            }
+            finally
+            {
+                LastFrameReadDuration = stopwatch.Elapsed;
+            }
         }
 
         public bool TryGetLatestTopDownBytes(int width, int height, out byte[] bytes, out int outWidth, out int outHeight)
         {
-            if (width <= 0 || height <= 0)
-                throw new ArgumentOutOfRangeException(nameof(width), "Target size must be positive.");
-
-            return frameBuffer.TryCopyCurrentResized(width, height, out bytes, out outWidth, out outHeight, out _, out _);
+            return TryGetLatestTopDownBytes(width, height, FrameResizeAlgorithm.Bilinear, out bytes, out outWidth, out outHeight);
         }
 
-        public bool TryGetLatestFrame(int width, int height, out CapturedFrame frame)
+        public bool TryGetLatestTopDownBytes(int width, int height, FrameResizeAlgorithm algorithm, out byte[] bytes, out int outWidth, out int outHeight)
         {
             if (width <= 0 || height <= 0)
                 throw new ArgumentOutOfRangeException(nameof(width), "Target size must be positive.");
 
-            if (!frameBuffer.TryRentCopyCurrentResized(
-                    width,
-                    height,
-                    out byte[] bytes,
-                    out int outWidth,
-                    out int outHeight,
-                    out long frameId,
-                    out DateTime timestampUtc))
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            try
             {
-                frame = null;
-                return false;
+                return frameBuffer.TryCopyCurrentResized(width, height, algorithm, out bytes, out outWidth, out outHeight, out _, out _);
             }
+            finally
+            {
+                LastFrameReadDuration = stopwatch.Elapsed;
+            }
+        }
 
-            frame = CreateOwnedRgbaFrame(bytes, outWidth, outHeight, frameId, timestampUtc);
-            return true;
+        public bool TryGetLatestFrame(int width, int height, out CapturedFrame frame)
+        {
+            return TryGetLatestFrame(width, height, FrameResizeAlgorithm.Bilinear, out frame);
+        }
+
+        public bool TryGetLatestFrame(int width, int height, FrameResizeAlgorithm algorithm, out CapturedFrame frame)
+        {
+            if (width <= 0 || height <= 0)
+                throw new ArgumentOutOfRangeException(nameof(width), "Target size must be positive.");
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            try
+            {
+                if (!frameBuffer.TryRentCopyCurrentResized(
+                        width,
+                        height,
+                        algorithm,
+                        out byte[] bytes,
+                        out int outWidth,
+                        out int outHeight,
+                        out long frameId,
+                        out DateTime timestampUtc))
+                {
+                    frame = null;
+                    return false;
+                }
+
+                frame = CreateOwnedRgbaFrame(bytes, outWidth, outHeight, frameId, timestampUtc);
+                return true;
+            }
+            finally
+            {
+                LastFrameReadDuration = stopwatch.Elapsed;
+            }
         }
 
         protected bool TryGetLatestOriginal(out byte[] bytes, out int width, out int height, out long frameId, out DateTime timestampUtc)
@@ -118,6 +172,19 @@ namespace WindowCapture
 
         public abstract void Dispose();
 
+        private void CaptureAndPublishLatestMeasured()
+        {
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            try
+            {
+                CaptureAndPublishLatest();
+            }
+            finally
+            {
+                LastRawCaptureDuration = stopwatch.Elapsed;
+            }
+        }
+
         private static CapturedFrame CreateOwnedRgbaFrame(byte[] bytes, int width, int height, long frameId, DateTime timestampUtc)
         {
             return new CapturedFrame(
@@ -135,6 +202,11 @@ namespace WindowCapture
         {
             if (buffer != null)
                 ArrayPool<byte>.Shared.Return(buffer);
+        }
+
+        private static double DurationToFps(TimeSpan duration)
+        {
+            return duration.TotalSeconds > 0d ? 1d / duration.TotalSeconds : 0d;
         }
     }
 }

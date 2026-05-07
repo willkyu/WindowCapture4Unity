@@ -2,30 +2,21 @@
 
 命名空间：`WindowCapture`
 
-这份文档只介绍使用包时最常用、最需要稳定认知的主要类。`IDisposable`、普通属性访问器、内部缓冲工具、native DLL 维护细节不在这里展开；原生导出说明见 `Native~/wgc/README.zh-CN.md`。
+本文只介绍主要公开接口。实现 `IDisposable` 的对象按 C# 常规释放即可，不单独展开通用释放函数。
 
 ## 基本约定
 
 - 普通捕获路径默认输出 top-down `RGBA32`。
 - 需要控制色彩格式或 top-down/bottom-up 时，使用 `WgcWindowFrameSource.CaptureOriginal(FramePixelFormat format, bool rowsBottomUp = false)`。
-- `CapturedFrame` 使用后应释放，尤其是来自缓冲型捕获源的帧可能持有池化 byte 数组。
-- 设备捕获基于 Unity `WebCamTexture`，设备名称来自 `CaptureDeviceEnumerator.ListDevices()`。
+- `WindowFrameSource.Auto` 优先 WGC；WGC 暂无新帧时复用最近缓存帧，避免鼠标位于目标内容外时在 WGC 和 GDI 之间来回切换。
+- `LastRawCaptureFps` 统计底层原始图像捕获耗时；`LastFrameReadFps` 统计取帧耗时，读取缩放帧时包含 CPU resize 耗时。两者都不受外部 `captureInterval` 影响。
+- 只做显示预览时保持原始尺寸，由 `RawImage` 缩放显示，通常可以避免 CPU resize。
 
 ## 主要类
 
 ### `CapturedFrame`
 
 一次捕获结果。
-
-| 成员 | 类型 | 说明 |
-| --- | --- | --- |
-| `Pixels` | `byte[]` | 像素字节数组。 |
-| `Width` | `int` | 帧宽。 |
-| `Height` | `int` | 帧高。 |
-| `Format` | `FramePixelFormat` | 像素格式。 |
-| `RowsBottomUp` | `bool` | `false` 表示 top-down；`true` 表示 bottom-up。 |
-| `FrameId` | `long` | 捕获源内递增帧号。 |
-| `TimestampUtc` | `DateTime` | UTC 捕获时间。 |
 
 构造函数主要用于测试或自定义捕获源：
 
@@ -41,7 +32,7 @@ CapturedFrame(
     Action<byte[]> releasePixels = null)
 ```
 
-`releasePixels` 会在帧释放时被调用一次。
+属性：`Pixels` 是像素字节数组；`Width`、`Height` 是帧尺寸；`Format` 是像素格式；`RowsBottomUp=false` 表示 top-down；`FrameId` 是捕获源内递增帧号；`TimestampUtc` 是 UTC 捕获时间。
 
 ### `FramePixelFormat`
 
@@ -61,15 +52,20 @@ int bytesPerPixel = FramePixelFormatUtility.GetBytesPerPixel(format);
 int byteCount = FramePixelFormatUtility.GetByteCount(width, height, format);
 ```
 
+### `FrameResizeAlgorithm`
+
+CPU 缩放算法选择。所有未显式传入算法的 resize API 默认使用 `Bilinear`。
+
+| 值 | 说明 |
+| --- | --- |
+| `Nearest` | 最近邻，速度快，适合识别输入。 |
+| `Bilinear` | 双线性，默认值，画面更平滑。 |
+
 ### `CaptureDeviceInfo`
 
 Unity 可采集设备信息，通常对应摄像头或 USB 采集卡。
 
-| 成员 | 类型 | 说明 |
-| --- | --- | --- |
-| `Name` | `string` | 传给 `WebCamFrameSource` 的设备名。 |
-| `DisplayName` | `string` | 当前等于 `Name`，供 UI 显示使用。 |
-| `IsFrontFacing` | `bool` | Unity 上报的前置设备标记。 |
+属性：`Name` 是传给 `WebCamFrameSource` 的设备名；`DisplayName` 用于 UI 显示；`IsFrontFacing` 是 Unity 上报的前置设备标记。
 
 ### `CaptureDeviceEnumerator`
 
@@ -77,21 +73,12 @@ Unity 可采集设备信息，通常对应摄像头或 USB 采集卡。
 
 ```csharp
 IReadOnlyList<CaptureDeviceInfo> devices = CaptureDeviceEnumerator.ListDevices();
+IReadOnlyList<CaptureDeviceInfo> webCams = CaptureDeviceEnumerator.ListWebCamDevices();
 ```
-
-#### `ListDevices()`
 
 参数：无。
 
 返回值：`IReadOnlyList<CaptureDeviceInfo>`。没有设备时返回空列表，不返回 `null`。
-
-#### `ListWebCamDevices()`
-
-`ListDevices()` 的语义别名，便于调用方明确这些设备来自 Unity `WebCamTexture.devices`。
-
-参数：无。
-
-返回值：`IReadOnlyList<CaptureDeviceInfo>`。
 
 ### `WebCamFrameSource`
 
@@ -103,26 +90,9 @@ using var source = new WebCamFrameSource(
     defaultOutputWidth: 480,
     defaultOutputHeight: 320,
     requestedFps: 30);
-
-using CapturedFrame frame = source.Capture();
 ```
 
-构造函数：
-
-```csharp
-WebCamFrameSource(
-    string deviceName,
-    int defaultOutputWidth,
-    int defaultOutputHeight,
-    int requestedFps = 30)
-```
-
-| 参数 | 说明 |
-| --- | --- |
-| `deviceName` | 设备名。空字符串表示默认设备。 |
-| `defaultOutputWidth` | `Capture()` 默认输出宽度；大于 0 且高度也大于 0 时会自动缩放。 |
-| `defaultOutputHeight` | `Capture()` 默认输出高度。 |
-| `requestedFps` | 请求帧率，小于等于 0 时按 30 处理。 |
+构造参数：`deviceName` 是设备名，空字符串表示默认设备；`defaultOutputWidth` / `defaultOutputHeight` 是 `Capture()` 默认输出尺寸；`requestedFps` 是请求帧率，小于等于 0 时按 30 处理。
 
 关键方法：
 
@@ -130,8 +100,10 @@ WebCamFrameSource(
 | --- | --- | --- | --- |
 | `Capture()` | 无 | `CapturedFrame` | 捕获默认尺寸帧。 |
 | `CaptureOriginal()` | 无 | `CapturedFrame` | 捕获设备原始尺寸帧。 |
-| `CaptureResized(int width, int height)` | 输出宽高 | `CapturedFrame` | 捕获并缩放。 |
+| `CaptureResized(int width, int height)` | 输出宽高 | `CapturedFrame` | 捕获并使用默认 CPU 算法缩放。 |
+| `CaptureResized(int width, int height, FrameResizeAlgorithm algorithm)` | 输出宽高和缩放算法 | `CapturedFrame` | 捕获并按指定 CPU 算法缩放。 |
 | `TryGetLatestOriginalFrame(out CapturedFrame frame)` | 输出最新帧 | `bool` | 只读缓存，不触发新捕获。 |
+| `TryGetLatestFrame(int width, int height, FrameResizeAlgorithm algorithm, out CapturedFrame frame)` | 输出宽高、缩放算法、输出帧 | `bool` | 只读缓存并缩放；耗时计入 `LastFrameReadDuration`。 |
 | `TryPumpLatestFrameOnMainThread(out string status)` | 输出状态文本 | `bool` | 主线程主动泵一帧，适合共享设备源。 |
 
 ### `SharedWebCamFrameSourceManager`
@@ -146,14 +118,7 @@ IBufferedFrameSource source = SharedWebCamFrameSourceManager.Acquire(
     requestedFps: 30);
 ```
 
-#### `Acquire(string deviceName, int defaultOutputWidth, int defaultOutputHeight, int requestedFps = 30)`
-
-| 参数 | 说明 |
-| --- | --- |
-| `deviceName` | 设备名。空字符串表示默认设备。 |
-| `defaultOutputWidth` | 租约默认输出宽度。 |
-| `defaultOutputHeight` | 租约默认输出高度。 |
-| `requestedFps` | 请求帧率。共享源会取更高频的需求。 |
+参数：`deviceName` 是设备名；`defaultOutputWidth` / `defaultOutputHeight` 是租约默认输出尺寸；`requestedFps` 是请求帧率。
 
 返回值：`IBufferedFrameSource` 租约。调用方用完后释放租约。
 
@@ -164,11 +129,11 @@ IBufferedFrameSource source = SharedWebCamFrameSourceManager.Acquire(
 ```csharp
 using var source = WindowFrameSource.FromWindowTitle(
     "Unity",
-    outputWidth: 480,
-    outputHeight: 320,
+    outputWidth: 0,
+    outputHeight: 0,
     backend: WindowCaptureBackend.Auto);
 
-using CapturedFrame frame = source.Capture();
+using CapturedFrame frame = source.CaptureOriginal();
 ```
 
 构造函数：
@@ -179,16 +144,11 @@ WindowFrameSource(
     int outputWidth,
     int outputHeight,
     WindowCaptureBackend backend = WindowCaptureBackend.Auto,
-    int wgcFailureThreshold = 30)
+    int wgcFailureThreshold = 30,
+    bool captureCursor = false)
 ```
 
-| 参数 | 说明 |
-| --- | --- |
-| `hwndProvider` | 返回目标窗口句柄。不能为 `null`。 |
-| `outputWidth` | `Capture()` 默认输出宽度。 |
-| `outputHeight` | `Capture()` 默认输出高度。 |
-| `backend` | 捕获后端，默认 `Auto`。 |
-| `wgcFailureThreshold` | `Auto` 模式下 WGC 连续失败多少次后短暂切换到 GDI fallback。 |
+参数：`hwndProvider` 返回目标窗口句柄；`outputWidth` / `outputHeight` 是 `Capture()` 默认输出尺寸，传 0 表示原始尺寸；`backend` 是捕获后端；`wgcFailureThreshold` 控制 WGC 连续失败多少次后短暂切到 GDI；`captureCursor` 控制是否捕获鼠标指针，默认 `false`。
 
 静态创建：
 
@@ -198,7 +158,8 @@ WindowFrameSource FromWindowTitle(
     int outputWidth,
     int outputHeight,
     WindowCaptureBackend backend = WindowCaptureBackend.Auto,
-    int wgcFailureThreshold = 30)
+    int wgcFailureThreshold = 30,
+    bool captureCursor = false)
 ```
 
 `titleKeywordOrSelector` 可以是窗口标题关键字，也可以是 `WindowsWindowInfo.Selector`。
@@ -208,13 +169,19 @@ WindowFrameSource FromWindowTitle(
 | 成员 | 类型 | 说明 |
 | --- | --- | --- |
 | `LastBackendUsed` | `WindowCaptureBackend` | 最近一次成功捕获使用的后端。 |
-| `WgcConsecutiveFailures` | `int` | 当前连续 WGC 失败次数。 |
 | `LastWgcError` | `string` | 最近一次 WGC 错误摘要。 |
+| `LastRawCaptureDuration` | `TimeSpan` | 最近一次底层原始图像捕获耗时。 |
+| `LastFrameReadDuration` | `TimeSpan` | 最近一次读取缓存帧耗时，读取缩放帧时包含 CPU resize。 |
+| `LastRawCaptureFps` | `double` | 按 `LastRawCaptureDuration` 换算的瞬时 FPS。 |
+| `LastFrameReadFps` | `double` | 按 `LastFrameReadDuration` 换算的瞬时 FPS。 |
 | `Capture()` | 方法 | 捕获默认尺寸帧。 |
 | `CaptureOriginal()` | 方法 | 捕获原始尺寸帧。 |
 | `CaptureResized(int width, int height)` | 方法 | 捕获指定尺寸帧。 |
+| `CaptureResized(int width, int height, FrameResizeAlgorithm algorithm)` | 方法 | 捕获指定尺寸帧，并选择 `Nearest` 或 `Bilinear` CPU resize。 |
 | `TryGetLatestOriginalFrame(out CapturedFrame frame)` | 方法 | 读取缓存原始帧。 |
-| `TryGetLatestFrame(int width, int height, out CapturedFrame frame)` | 方法 | 读取并缩放缓存帧。 |
+| `TryGetLatestFrame(int width, int height, FrameResizeAlgorithm algorithm, out CapturedFrame frame)` | 方法 | 读取并按指定 CPU 算法缩放缓存帧。 |
+
+只把画面显示到 Unity UI 时，优先让 `outputWidth` / `outputHeight` 保持 `0`，使用原始捕获尺寸，再由 `RawImage` 或 UI 布局缩放显示。这样可以避免 CPU resize，通常会显著提高 `LastFrameReadFps`。
 
 ### `WgcWindowFrameSource`
 
@@ -233,23 +200,17 @@ using CapturedFrame frame = source.CaptureOriginal(
 WgcWindowFrameSource(
     Func<IntPtr> hwndProvider,
     int defaultOutputWidth,
-    int defaultOutputHeight)
+    int defaultOutputHeight,
+    bool captureCursor = false)
 ```
 
-| 参数 | 说明 |
-| --- | --- |
-| `hwndProvider` | 返回目标窗口句柄。 |
-| `defaultOutputWidth` | `Capture()` 默认输出宽度。 |
-| `defaultOutputHeight` | `Capture()` 默认输出高度。 |
+参数：`hwndProvider` 返回目标窗口句柄；`defaultOutputWidth` / `defaultOutputHeight` 是 `Capture()` 默认输出尺寸；`captureCursor` 是否捕获鼠标指针，默认 `false`。
 
-#### `CaptureOriginal(FramePixelFormat format, bool rowsBottomUp = false)`
+```csharp
+CapturedFrame CaptureOriginal(FramePixelFormat format, bool rowsBottomUp = false)
+```
 
-这是需要控制色彩格式或行顺序时的主要入口。
-
-| 参数 | 说明 |
-| --- | --- |
-| `format` | 输出像素格式：`Rgba32`、`Bgra32`、`Rgb24`、`Bgr24`。 |
-| `rowsBottomUp` | `false` 输出 top-down；`true` 输出 bottom-up。默认 `false`。 |
+参数：`format` 是输出像素格式，支持 `Rgba32`、`Bgra32`、`Rgb24`、`Bgr24`；`rowsBottomUp=false` 输出 top-down，`true` 输出 bottom-up。
 
 返回值：原始尺寸 `CapturedFrame`，`Format` 和 `RowsBottomUp` 与参数一致。
 
@@ -264,13 +225,7 @@ using var source = new Win32PrintWindowFrameSource(() => hwnd, 480, 320);
 using CapturedFrame frame = source.Capture();
 ```
 
-构造函数参数：
-
-| 参数 | 说明 |
-| --- | --- |
-| `hwndProvider` | 返回目标窗口句柄。 |
-| `defaultOutputWidth` | `Capture()` 默认输出宽度。 |
-| `defaultOutputHeight` | `Capture()` 默认输出高度。 |
+构造参数：`hwndProvider` 返回目标窗口句柄；`defaultOutputWidth` / `defaultOutputHeight` 是 `Capture()` 默认输出尺寸。
 
 输出：top-down `RGBA32`。
 
@@ -283,17 +238,9 @@ using var source = new TextureFrameSource(() => texture);
 using CapturedFrame frame = source.Capture();
 ```
 
-构造函数：
+参数：`textureProvider` 每次捕获时返回源纹理。
 
-```csharp
-TextureFrameSource(Func<Texture2D> textureProvider)
-```
-
-| 参数 | 说明 |
-| --- | --- |
-| `textureProvider` | 每次捕获时返回源纹理。不能为 `null`，返回值也不能为 `null`。 |
-
-`Capture()` 返回 top-down `RGBA32`。
+返回值：top-down `RGBA32` 的 `CapturedFrame`。
 
 ### `WindowsWindowEnumerator`
 
@@ -304,32 +251,25 @@ IReadOnlyList<WindowsWindowInfo> windows =
     WindowsWindowEnumerator.ListTopLevelWindows();
 ```
 
-| 方法 | 参数 | 返回值 | 说明 |
-| --- | --- | --- | --- |
-| `ListTopLevelWindows(bool includeUntitled = false)` | 是否包含空标题窗口 | `IReadOnlyList<WindowsWindowInfo>` | 非 Windows 返回空列表。 |
-| `TryGetWindowTitle(IntPtr hwnd, out string title)` | 窗口句柄；输出标题 | `bool` | 成功读到非空标题时返回 `true`。 |
+方法：`ListTopLevelWindows(bool includeUntitled = false)` 返回窗口列表；`TryGetWindowTitle(IntPtr hwnd, out string title)` 读取窗口标题。
 
 ### `WindowsWindowInfo`
 
 窗口枚举结果。
 
-| 成员 | 类型 | 说明 |
-| --- | --- | --- |
-| `Hwnd` | `IntPtr` | 窗口句柄。 |
-| `Title` | `string` | 窗口标题。 |
-| `Selector` | `string` | 可持久化 selector，格式为 `hwnd:HEX|Title`。 |
+属性：`Hwnd` 是窗口句柄；`Title` 是窗口标题；`Selector` 是可持久化 selector，格式为 `hwnd:HEX|Title`。
 
 ### `WindowsWindowFinder`
 
 窗口选择和 selector 工具。
 
-| 方法 | 参数 | 返回值 | 说明 |
-| --- | --- | --- | --- |
-| `BuildHwndSelector(IntPtr hwnd, string title)` | 窗口句柄和标题 | `string` | 生成 `hwnd:HEX|Title`。 |
-| `GetDisplayTitle(string selectorOrTitle)` | selector 或标题 | `string` | 返回用于 UI 显示的标题。 |
-| `TryParseHwndSelector(string value, out IntPtr hwnd)` | selector；输出句柄 | `bool` | 解析成功返回 `true`。 |
-| `FindTopLevelWindowsByTitleSubstring(string titleSubstring)` | 标题关键字 | `IReadOnlyList<IntPtr>` | 返回匹配窗口句柄列表。 |
-| `FindFirstTopLevelWindowByTitleSubstring(string selectorOrTitle)` | selector 或标题关键字 | `IntPtr` | 找到返回句柄，否则 `IntPtr.Zero`。 |
+| 方法 | 返回值 | 说明 |
+| --- | --- | --- |
+| `BuildHwndSelector(IntPtr hwnd, string title)` | `string` | 生成 `hwnd:HEX|Title`。 |
+| `GetDisplayTitle(string selectorOrTitle)` | `string` | 返回用于 UI 显示的标题。 |
+| `TryParseHwndSelector(string value, out IntPtr hwnd)` | `bool` | 解析 selector。 |
+| `FindTopLevelWindowsByTitleSubstring(string titleSubstring)` | `IReadOnlyList<IntPtr>` | 返回匹配窗口句柄列表。 |
+| `FindFirstTopLevelWindowByTitleSubstring(string selectorOrTitle)` | `IntPtr` | 找到返回句柄，否则 `IntPtr.Zero`。 |
 
 ### `WindowCaptureBackend`
 
@@ -337,7 +277,7 @@ IReadOnlyList<WindowsWindowInfo> windows =
 
 | 值 | 说明 |
 | --- | --- |
-| `Auto` | 优先 WGC，失败后 fallback 到 `PrintWindow`，再 fallback 到 `BitBlt`。 |
+| `Auto` | 优先 WGC；WGC 暂无新帧时复用最近缓存帧，没有缓存或连续失败后 fallback 到 `PrintWindow`，再 fallback 到 `BitBlt`。 |
 | `Wgc` | 只使用 Windows Graphics Capture。 |
 | `GdiPrintWindow` | 只使用 Win32 `PrintWindow`。 |
 | `GdiBitBlt` | 只使用 Win32 `BitBlt`。 |

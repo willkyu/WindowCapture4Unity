@@ -10,6 +10,7 @@ extern "C"
 {
     __declspec(dllimport) bool __cdecl Wgc_IsSupported();
     __declspec(dllimport) bool __cdecl Wgc_CreateSession(HWND hwnd, void** outSession);
+    __declspec(dllimport) bool __cdecl Wgc_CreateSessionWithOptions(HWND hwnd, int captureCursor, void** outSession);
     __declspec(dllimport) void __cdecl Wgc_DestroySession(void* sessionPtr);
     __declspec(dllimport) int __cdecl Wgc_GetFrameBytesPerPixel(int pixelFormat);
     __declspec(dllimport) int __cdecl Wgc_GetDefaultRowsBottomUp();
@@ -161,7 +162,9 @@ int wmain()
     for (int i = 0; i < 2; ++i)
     {
         void* session = nullptr;
-        const bool created = Wgc_CreateSession(hwnd, &session);
+        const bool created = i == 0
+            ? Wgc_CreateSession(hwnd, &session)
+            : Wgc_CreateSessionWithOptions(hwnd, 0, &session);
         std::printf("Wgc_CreateSession[%d]=%d session=%p\n", i, created ? 1 : 0, session);
 
         if (!created || !session)

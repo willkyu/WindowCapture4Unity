@@ -16,14 +16,16 @@ namespace WindowCapture
         internal const bool DefaultRowsBottomUp = false;
 
         private readonly Func<IntPtr> hwndProvider;
+        private readonly bool captureCursor;
         private IntPtr activeHwnd;
         private IntPtr session;
         private long directFrameId;
 
-        public WgcWindowFrameSource(Func<IntPtr> hwndProvider, int defaultOutputWidth, int defaultOutputHeight)
+        public WgcWindowFrameSource(Func<IntPtr> hwndProvider, int defaultOutputWidth, int defaultOutputHeight, bool captureCursor = false)
             : base(defaultOutputWidth, defaultOutputHeight)
         {
             this.hwndProvider = hwndProvider ?? throw new ArgumentNullException(nameof(hwndProvider));
+            this.captureCursor = captureCursor;
         }
 
         protected override void CaptureAndPublishLatest()
@@ -139,7 +141,7 @@ namespace WindowCapture
             if (!WgcNative.Wgc_IsSupported())
                 throw new PlatformNotSupportedException("WGC is not supported on this system.");
 
-            if (!WgcNative.Wgc_CreateSession(hwnd, out session) || session == IntPtr.Zero)
+            if (!WgcNative.Wgc_CreateSessionWithOptions(hwnd, captureCursor ? 1 : 0, out session) || session == IntPtr.Zero)
             {
                 session = IntPtr.Zero;
                 throw new InvalidOperationException("WGC failed to create a capture session for hwnd=" + hwnd + ".");

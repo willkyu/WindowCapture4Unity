@@ -394,14 +394,19 @@ namespace WindowCapture
 
             public CapturedFrame CaptureResized(int width, int height)
             {
+                return CaptureResized(width, height, FrameResizeAlgorithm.Bilinear);
+            }
+
+            public CapturedFrame CaptureResized(int width, int height, FrameResizeAlgorithm algorithm)
+            {
                 ThrowIfDisposed();
-                if (entry.Source.TryGetLatestFrame(width, height, out CapturedFrame latestFrame))
+                if (entry.Source.TryGetLatestFrame(width, height, algorithm, out CapturedFrame latestFrame))
                     return latestFrame;
 
                 EnterCaptureGate();
                 try
                 {
-                    return entry.Source.CaptureResized(width, height);
+                    return entry.Source.CaptureResized(width, height, algorithm);
                 }
                 finally
                 {
@@ -423,14 +428,24 @@ namespace WindowCapture
 
             public bool TryGetLatestTopDownBytes(int width, int height, out byte[] bytes, out int outWidth, out int outHeight)
             {
+                return TryGetLatestTopDownBytes(width, height, FrameResizeAlgorithm.Bilinear, out bytes, out outWidth, out outHeight);
+            }
+
+            public bool TryGetLatestTopDownBytes(int width, int height, FrameResizeAlgorithm algorithm, out byte[] bytes, out int outWidth, out int outHeight)
+            {
                 ThrowIfDisposed();
-                return entry.Source.TryGetLatestTopDownBytes(width, height, out bytes, out outWidth, out outHeight);
+                return entry.Source.TryGetLatestTopDownBytes(width, height, algorithm, out bytes, out outWidth, out outHeight);
             }
 
             public bool TryGetLatestFrame(int width, int height, out CapturedFrame frame)
             {
+                return TryGetLatestFrame(width, height, FrameResizeAlgorithm.Bilinear, out frame);
+            }
+
+            public bool TryGetLatestFrame(int width, int height, FrameResizeAlgorithm algorithm, out CapturedFrame frame)
+            {
                 ThrowIfDisposed();
-                return entry.Source.TryGetLatestFrame(width, height, out frame);
+                return entry.Source.TryGetLatestFrame(width, height, algorithm, out frame);
             }
 
             public void Dispose()
