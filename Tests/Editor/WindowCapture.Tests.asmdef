@@ -1,0 +1,21 @@
+﻿{
+  "name": "WindowCapture.Tests",
+  "rootNamespace": "WindowCapture.Tests",
+  "references": [
+    "WindowCapture"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "noEngineReferences": false
+}
