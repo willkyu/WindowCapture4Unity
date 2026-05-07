@@ -1,4 +1,4 @@
-# willkyu Window Capture
+# Window Capture For Unity
 
 This Unity UPM package focuses on Windows window capture and device capture, inspired by [uWindowCapture](https://github.com/hecomi/uWindowCapture), with the help of Codex.
 
