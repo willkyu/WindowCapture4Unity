@@ -89,6 +89,8 @@ These metrics are based on actual operation duration and are not affected by an 
 
 For ONNX or other recognition code, use `CaptureOriginal()` for display-independent raw frames and prepare resized model input on a worker. For device capture, let `SharedWebCamFrameSourceManager` pump the webcam on the main thread, then have the worker read `TryGetLatestOriginalFrame(...)` and prepare the tensor. The inference loop can consume prepared input instead of repeating resize and tensor conversion work.
 
+When `com.willkyu.onnxruntime-inference` is also installed, that ONNX package provides an optional bridge assembly that keeps `runner.TryBeginRun(CapturedFrame)`, `write.TryPrepare(CapturedFrame)`, and `read.CreatePreviewFrame()` available. This Window Capture package does not depend on the ONNX package.
+
 ## CPU Resize
 
 When a fixed input size is required, select the CPU resize algorithm explicitly:
