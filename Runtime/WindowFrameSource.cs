@@ -3,7 +3,7 @@ using System.Threading;
 
 namespace WindowCapture
 {
-    public sealed class WindowFrameSource : IBufferedFrameSource
+    public sealed class WindowFrameSource : IBufferedFrameSource, IFrameSourceMetrics
     {
         private enum FrameRequestKind
         {

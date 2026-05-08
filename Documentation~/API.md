@@ -61,6 +61,19 @@ CPU resize algorithm selection. Resize APIs that do not explicitly receive an al
 | `Nearest` | Nearest-neighbor, faster, suitable for recognition input. |
 | `Bilinear` | Bilinear, default, smoother image. |
 
+### `IFrameSourceMetrics`
+
+Common timing metrics exposed by buffered sources and source facades.
+
+| Member | Type | Description |
+| --- | --- | --- |
+| `LastRawCaptureDuration` | `TimeSpan` | Latest low-level raw image capture duration. |
+| `LastFrameReadDuration` | `TimeSpan` | Latest cached frame read duration, including CPU resize when a resized frame is read. |
+| `LastRawCaptureFps` | `double` | Instant FPS converted from `LastRawCaptureDuration`. |
+| `LastFrameReadFps` | `double` | Instant FPS converted from `LastFrameReadDuration`. |
+
+`WindowFrameSource`, `WebCamFrameSource`, and leases returned by `SharedWebCamFrameSourceManager.Acquire(...)` expose these metrics.
+
 ### `CaptureDeviceInfo`
 
 Unity capturable device information, usually a camera or USB capture card.
@@ -121,6 +134,8 @@ IBufferedFrameSource source = SharedWebCamFrameSourceManager.Acquire(
 Parameters: `deviceName` is the device name; `defaultOutputWidth` and `defaultOutputHeight` are lease default output size; `requestedFps` is requested frame rate.
 
 Return value: an `IBufferedFrameSource` lease. Dispose the lease after use.
+
+The returned lease also implements `IFrameSourceMetrics`, so device capture can report raw capture FPS and frame-read FPS through the same path as window capture.
 
 ### `WindowFrameSource`
 

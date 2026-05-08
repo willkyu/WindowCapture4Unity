@@ -353,7 +353,7 @@ namespace WindowCapture
             }
         }
 
-        private sealed class Lease : IBufferedFrameSource
+        private sealed class Lease : IBufferedFrameSource, IFrameSourceMetrics
         {
             private readonly Entry entry;
             private readonly int defaultOutputWidth;
@@ -366,6 +366,11 @@ namespace WindowCapture
                 this.defaultOutputWidth = defaultOutputWidth;
                 this.defaultOutputHeight = defaultOutputHeight;
             }
+
+            public TimeSpan LastRawCaptureDuration => entry.Source.LastRawCaptureDuration;
+            public TimeSpan LastFrameReadDuration => entry.Source.LastFrameReadDuration;
+            public double LastRawCaptureFps => entry.Source.LastRawCaptureFps;
+            public double LastFrameReadFps => entry.Source.LastFrameReadFps;
 
             public CapturedFrame Capture()
             {

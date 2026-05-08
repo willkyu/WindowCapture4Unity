@@ -4,7 +4,7 @@ using System.Diagnostics;
 
 namespace WindowCapture
 {
-    public abstract class TopDownBufferedFrameSourceBase : IBufferedFrameSource
+    public abstract class TopDownBufferedFrameSourceBase : IBufferedFrameSource, IFrameSourceMetrics
     {
         private readonly int defaultOutputWidth;
         private readonly int defaultOutputHeight;

@@ -212,6 +212,12 @@ namespace WindowCapture.Tests
             StringAssert.Contains("TMP_Dropdown", text);
             StringAssert.Contains("TextMeshProUGUI", text);
             StringAssert.Contains("RawImage", text);
+            StringAssert.Contains("private enum CaptureInputKind", text);
+            StringAssert.Contains("private CaptureInputKind captureInput = CaptureInputKind.Window;", text);
+            StringAssert.Contains("CaptureDeviceEnumerator.ListDevices", text);
+            StringAssert.Contains("SharedWebCamFrameSourceManager.Acquire", text);
+            StringAssert.Contains("private IBufferedFrameSource frameSource;", text);
+            StringAssert.Contains("private IFrameSourceMetrics frameMetrics;", text);
             StringAssert.Contains("private TextMeshProUGUI detectionText;", text);
             StringAssert.Contains("private RectTransform detectionOverlayRoot;", text);
             StringAssert.Contains("private float inferenceInterval", text);
@@ -219,6 +225,9 @@ namespace WindowCapture.Tests
             StringAssert.Contains("PreparedFrameOnnxInputBuffer", text);
             StringAssert.Contains("private bool useWorkerPreparedModelInput = true", text);
             StringAssert.Contains("CaptureWorkerLoop", text);
+            StringAssert.Contains("IBufferedFrameSource source = frameSource;", text);
+            StringAssert.Contains("TryAcquireWorkerSourceFrame", text);
+            StringAssert.Contains("source.TryGetLatestOriginalFrame(out frame)", text);
             StringAssert.Contains("TryBeginRun(preparedInput)", text);
             StringAssert.Contains("RenderDetectionOverlay", text);
             StringAssert.Contains("private int outputWidth = 0;", text);
@@ -231,6 +240,8 @@ namespace WindowCapture.Tests
             Assert.IsFalse(text.Contains("TrackCaptureFps", StringComparison.Ordinal));
             Assert.IsFalse(text.Contains("framesInWindow", StringComparison.Ordinal));
             Assert.IsFalse(text.Contains("fpsWindowStartTime", StringComparison.Ordinal));
+            Assert.IsFalse(text.Contains("private WindowFrameSource frameSource;", StringComparison.Ordinal));
+            Assert.IsFalse(text.Contains("WindowFrameSource source = frameSource;", StringComparison.Ordinal));
             Assert.IsFalse(text.Contains("private Dropdown", StringComparison.Ordinal));
             Assert.IsFalse(text.Contains("private Text ", StringComparison.Ordinal));
 
@@ -399,11 +410,17 @@ namespace WindowCapture.Tests
         public void WindowFrameSourceExposesTimingCursorAndStableWgcReuseApi()
         {
             string packageRoot = FindPackageRoot();
+            string captureFrame = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "CaptureFrame.cs"));
             string windowFrameSource = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "WindowFrameSource.cs"));
             string wgcFrameSource = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "WgcWindowFrameSource.cs"));
             string bufferedFrameSource = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "TopDownBufferedFrameSourceBase.cs"));
+            string webCamFrameSource = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "WebCamFrameSource.cs"));
             string wgcNative = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "WgcNative.cs"));
 
+            StringAssert.Contains("interface IFrameSourceMetrics", captureFrame);
+            StringAssert.Contains("WindowFrameSource : IBufferedFrameSource, IFrameSourceMetrics", windowFrameSource);
+            StringAssert.Contains("TopDownBufferedFrameSourceBase : IBufferedFrameSource, IFrameSourceMetrics", bufferedFrameSource);
+            StringAssert.Contains("Lease : IBufferedFrameSource, IFrameSourceMetrics", webCamFrameSource);
             StringAssert.Contains("bool captureCursor = false", windowFrameSource);
             StringAssert.Contains("bool captureCursor = false", wgcFrameSource);
             StringAssert.Contains("LastRawCaptureDuration", bufferedFrameSource);

@@ -84,4 +84,12 @@ namespace WindowCapture
         bool TryGetLatestFrame(int width, int height, out CapturedFrame frame);
         bool TryGetLatestFrame(int width, int height, FrameResizeAlgorithm algorithm, out CapturedFrame frame);
     }
+
+    public interface IFrameSourceMetrics
+    {
+        TimeSpan LastRawCaptureDuration { get; }
+        TimeSpan LastFrameReadDuration { get; }
+        double LastRawCaptureFps { get; }
+        double LastFrameReadFps { get; }
+    }
 }

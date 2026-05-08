@@ -59,6 +59,19 @@ CPU 缩放算法选择。所有未显式传入算法的 resize API 默认使用 
 | `Nearest` | 最近邻，速度快，适合识别输入。 |
 | `Bilinear` | 双线性，默认值，画面更平滑。 |
 
+### `IFrameSourceMetrics`
+
+缓冲型捕获源和捕获门面共用的耗时指标接口。
+
+| 成员 | 类型 | 说明 |
+| --- | --- | --- |
+| `LastRawCaptureDuration` | `TimeSpan` | 最近一次底层原始图像捕获耗时。 |
+| `LastFrameReadDuration` | `TimeSpan` | 最近一次读取缓存帧耗时，读取缩放帧时包含 CPU resize。 |
+| `LastRawCaptureFps` | `double` | 按 `LastRawCaptureDuration` 换算的瞬时 FPS。 |
+| `LastFrameReadFps` | `double` | 按 `LastFrameReadDuration` 换算的瞬时 FPS。 |
+
+`WindowFrameSource`、`WebCamFrameSource` 以及 `SharedWebCamFrameSourceManager.Acquire(...)` 返回的租约都提供该接口。
+
 ### `CaptureDeviceInfo`
 
 Unity 可采集设备信息，通常对应摄像头或 USB 采集卡。
@@ -119,6 +132,8 @@ IBufferedFrameSource source = SharedWebCamFrameSourceManager.Acquire(
 参数：`deviceName` 是设备名；`defaultOutputWidth` / `defaultOutputHeight` 是租约默认输出尺寸；`requestedFps` 是请求帧率。
 
 返回值：`IBufferedFrameSource` 租约。调用方用完后释放租约。
+
+返回的租约也实现 `IFrameSourceMetrics`，因此设备捕获可以和窗口捕获一样输出原始捕获 FPS 和取帧 FPS。
 
 ### `WindowFrameSource`
 

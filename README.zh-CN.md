@@ -10,6 +10,7 @@
 - 将所有缓冲型捕获源统一输出为 top-down `RGBA32`。
 - 提供原始尺寸和 CPU resize 两类取帧方法，resize 可选择 `Nearest` 或 `Bilinear`。
 - 提供双缓冲最新帧快照，避免 UI 或识别线程每次读取时重新触发底层捕获。
+- 为窗口和设备捕获源提供统一的原始捕获、取帧耗时和 FPS 指标。
 
 ## 安装
 
@@ -68,6 +69,25 @@ using CapturedFrame frame = source.Capture();
 ```
 
 多个消费者读取同一个摄像头或采集卡时，优先使用 `SharedWebCamFrameSourceManager.Acquire(...)`。它会按设备名复用同一个 `WebCamTexture`，并用引用计数管理生命周期。
+
+共享设备租约让同一个主线程 webcam pump 更新缓存帧，worker 代码只读取快照。这样可以把 `WebCamTexture` 相关工作留在 Unity 主线程，同时允许 resize 或识别预处理离开显示循环执行。
+
+## 运行时指标
+
+`IFrameSourceMetrics` 提供窗口源、WebCam 源和 shared webcam 租约共用的耗时数据：
+
+| 成员 | 含义 |
+| --- | --- |
+| `LastRawCaptureFps` | 最近一次底层捕获耗时换算的瞬时 FPS。 |
+| `LastFrameReadFps` | 最近一次缓存取帧耗时换算的瞬时 FPS；读取缩放帧时包含 CPU resize。 |
+| `LastRawCaptureDuration` | 最近一次底层原始捕获耗时。 |
+| `LastFrameReadDuration` | 最近一次缓存取帧耗时。 |
+
+这些指标基于实际操作耗时，不受外部 capture interval 或 inference throttle 影响。
+
+## 识别管线建议
+
+用于 ONNX 或其他识别代码时，使用 `CaptureOriginal()` 获取与显示解耦的原始帧，并在 worker 中准备缩放后的模型输入。设备捕获建议让 `SharedWebCamFrameSourceManager` 在主线程 pump 设备帧，worker 再读取 `TryGetLatestOriginalFrame(...)` 并准备 tensor。推理循环可以直接消费 prepared input，避免重复 resize 和 tensor 转换。
 
 ## CPU resize
 

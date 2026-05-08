@@ -10,6 +10,7 @@ This Unity UPM package focuses on Windows window capture and device capture, ins
 - Normalizes all buffered capture sources to top-down `RGBA32`.
 - Provides both original-size frame reads and CPU resize frame reads. Resize can use `Nearest` or `Bilinear`.
 - Provides latest-frame buffering so UI or recognition code can read cached frames without triggering a new low-level capture every time.
+- Exposes common raw-capture and frame-read timing metrics for window and device sources.
 
 This package does not include detector models, business UI, task systems, keyboard/mouse output, EasyCon, or original project settings.
 
@@ -47,8 +48,6 @@ Use `WindowsWindowEnumerator.ListTopLevelWindows()` to build a window dropdown. 
 
 WGC cursor capture is disabled by default. Pass `captureCursor: true` when creating `WindowFrameSource` or `WgcWindowFrameSource` if the cursor pointer should be included in the captured image.
 
-`WindowFrameSource.LastRawCaptureFps` is the instantaneous FPS converted from the low-level raw image capture duration. `LastFrameReadFps` is the instantaneous FPS converted from the cached frame read duration; when reading a resized frame, it includes resize time. Both values are based on the latest operation duration and are not affected by an external `captureInterval`.
-
 For UI preview only, keep `outputWidth = 0` and `outputHeight = 0` so frames are read at the original window size, then let `RawImage` scale the display. This avoids CPU resize and usually improves `LastFrameReadFps`.
 
 ## Device Capture
@@ -70,6 +69,25 @@ using CapturedFrame frame = source.Capture();
 ```
 
 When multiple consumers read the same camera or capture card, prefer `SharedWebCamFrameSourceManager.Acquire(...)`. It reuses one `WebCamTexture` per device name and manages lifetime with reference-counted leases.
+
+The shared device lease lets one main-thread webcam pump update cached frames while worker code reads snapshots. This keeps `WebCamTexture` work on Unity's main thread and still allows resize or recognition preprocessing to run outside the presentation loop.
+
+## Runtime Metrics
+
+`IFrameSourceMetrics` exposes timing data shared by window sources, webcam sources, and shared webcam leases:
+
+| Member | Meaning |
+| --- | --- |
+| `LastRawCaptureFps` | Instantaneous FPS converted from the latest low-level capture duration. |
+| `LastFrameReadFps` | Instantaneous FPS converted from the latest cached-frame read duration. Resized reads include CPU resize time. |
+| `LastRawCaptureDuration` | Latest low-level raw capture time. |
+| `LastFrameReadDuration` | Latest cached-frame read time. |
+
+These metrics are based on actual operation duration and are not affected by an external capture interval or inference throttle.
+
+## Recognition Pipeline Notes
+
+For ONNX or other recognition code, use `CaptureOriginal()` for display-independent raw frames and prepare resized model input on a worker. For device capture, let `SharedWebCamFrameSourceManager` pump the webcam on the main thread, then have the worker read `TryGetLatestOriginalFrame(...)` and prepare the tensor. The inference loop can consume prepared input instead of repeating resize and tensor conversion work.
 
 ## CPU Resize
 
