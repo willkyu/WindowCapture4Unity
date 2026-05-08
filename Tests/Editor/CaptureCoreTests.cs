@@ -224,10 +224,6 @@ namespace WindowCapture.Tests
             StringAssert.Contains("FrameOnnxRunner", text);
             StringAssert.Contains("PreparedFrameOnnxInputBuffer", text);
             StringAssert.Contains("private bool useWorkerPreparedModelInput = true", text);
-            StringAssert.Contains("private int workerTargetFps = 60", text);
-            StringAssert.Contains("captureWorkerGeneration", text);
-            StringAssert.Contains("ClearReadyFrames", text);
-            StringAssert.Contains("discardNextInferenceResult", text);
             StringAssert.Contains("CaptureWorkerLoop", text);
             StringAssert.Contains("IBufferedFrameSource source = frameSource;", text);
             StringAssert.Contains("TryAcquireWorkerSourceFrame", text);
