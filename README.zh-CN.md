@@ -89,8 +89,6 @@ using CapturedFrame frame = source.Capture();
 
 用于 ONNX 或其他识别代码时，使用 `CaptureOriginal()` 获取与显示解耦的原始帧，并在 worker 中准备缩放后的模型输入。设备捕获建议让 `SharedWebCamFrameSourceManager` 在主线程 pump 设备帧，worker 再读取 `TryGetLatestOriginalFrame(...)` 并准备 tensor。推理循环可以直接消费 prepared input，避免重复 resize 和 tensor 转换。
 
-如果同时安装 `com.willkyu.onnxruntime-inference`，ONNX 包会通过可选桥接程序集继续支持 `runner.TryBeginRun(CapturedFrame)`、`write.TryPrepare(CapturedFrame)` 和 `read.CreatePreviewFrame()`。Window Capture 包本身不依赖 ONNX 包。
-
 ## CPU resize
 
 需要固定输入尺寸时，可以显式选择 CPU resize 算法：

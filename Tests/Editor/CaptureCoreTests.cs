@@ -376,10 +376,6 @@ namespace WindowCapture.Tests
             Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "IOnnxDetectorSession.cs")));
             Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "OnnxRuntimeDetectorSession.cs")));
             Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "OrtNativeLibraryPreloader.cs")));
-            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "OnnxInputFrame.cs")));
-            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "OnnxFramePixelFormat.cs")));
-            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "OnnxResizeAlgorithm.cs")));
-            Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "WindowCaptureBridge", "WindowCaptureOnnxExtensions.cs")));
             Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "TensorPreprocessor.cs")));
             Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "Plugins", "Windows", "x86_64", "onnxruntime.dll")));
             Assert.IsTrue(File.Exists(Path.Combine(packageRoot, "Runtime", "Managed", "Microsoft.ML.OnnxRuntime.dll")));
@@ -388,7 +384,6 @@ namespace WindowCapture.Tests
             StringAssert.Contains("\"name\": \"com.willkyu.onnxruntime-inference\"", packageJson);
             StringAssert.Contains("\"author\"", packageJson);
             StringAssert.Contains("\"willkyu\"", packageJson);
-            Assert.IsFalse(packageJson.Contains("com.willkyu.window-capture", StringComparison.Ordinal));
 
             string runtimeApi = File.ReadAllText(Path.Combine(packageRoot, "Runtime", "OnnxRuntimeDetectorSession.cs"));
             StringAssert.Contains("namespace OnnxRuntimeInference", runtimeApi);
